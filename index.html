@@ -521,6 +521,14 @@
       return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     }
 
+    function isIOSDevice() {
+      return /iP(hone|od|ad)/.test(navigator.platform) || (navigator.userAgent.indexOf('Mac') !== -1 && 'ontouchend' in document);
+    }
+
+    function isStandaloneApp() {
+      return window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    }
+
     async function subscribeForPreparationNotif(orderId, cocktail, guest) {
       try {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
@@ -946,7 +954,10 @@
 
       modalStatus.textContent = guest ? 'Merci ' + guest + ', commande envoyée ✓' : 'Commande envoyée ✓';
 
-      const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+      // iOS Safari exposes window.PushManager even in a plain browser tab, but
+      // subscribing will always fail there — only offer the button when it can
+      // actually work (non-iOS, or iOS already installed to the Home Screen).
+      const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && (!isIOSDevice() || isStandaloneApp());
       if (pushSupported) {
         btnNotifyReady.style.display = 'block';
         btnNotifyReady.disabled = false;
@@ -957,14 +968,6 @@
     });
 
     btnNotifyReady.addEventListener('click', async function () {
-      const isIOS = /iP(hone|od|ad)/.test(navigator.platform) || (navigator.userAgent.indexOf('Mac') !== -1 && 'ontouchend' in document);
-      const isStandalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-
-      if (isIOS && !isStandalone) {
-        notifyStatus.textContent = 'Sur iPhone : ajoute d\'abord ce site à ton écran d\'accueil (bouton Partager de Safari → "Sur l\'écran d\'accueil"), puis reviens commander pour être notifié.';
-        return;
-      }
-
       btnNotifyReady.disabled = true;
       btnNotifyReady.textContent = 'Activation...';
       await subscribeForPreparationNotif(lastOrderId, lastOrderCocktail, lastOrderGuest);
