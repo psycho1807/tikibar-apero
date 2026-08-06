@@ -68,6 +68,13 @@ export default async (req, context) => {
     return htmlResponse(200, "✅", `Notification envoyée à ${record.guest || "l'invité"} pour ${cocktail}.`);
   } catch (err) {
     // 404/410 means the guest's subscription has expired (they closed the tab, etc.)
+    // Log details so we can diagnose (e.g. VAPID key mismatch shows up as 401/403).
+    console.error("mark-preparing push failed", {
+      orderId,
+      statusCode: err && err.statusCode,
+      body: err && err.body,
+      message: err && err.message,
+    });
     await store.delete(orderId);
     return htmlResponse(200, "😕", "Impossible d'envoyer la notif (l'invité a peut-être fermé la page).");
   }
