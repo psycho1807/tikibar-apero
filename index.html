@@ -315,6 +315,26 @@
     font-weight: 600;
     min-height: 16px;
   }
+  .btn-notify-ready {
+    margin: 0.5rem auto 0;
+    display: block;
+    background: rgba(255,255,255,0.55);
+    border: 1px solid rgba(43,33,24,0.15);
+    color: #2b2118;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .btn-notify-ready:active { opacity: 0.7; }
+  .notify-status {
+    margin: 0.4rem 0 0;
+    font-size: 11.5px;
+    color: #6b5a44;
+    min-height: 14px;
+    line-height: 1.4;
+  }
 </style>
 </head>
 <body>
@@ -472,6 +492,8 @@
       <button class="btn-confirm" id="btnConfirm">Envoyer au barman 🍹</button>
     </div>
     <p class="modal-status" id="modalStatus"></p>
+    <button class="btn-notify-ready" id="btnNotifyReady" style="display:none;" type="button">🔔 Être notifié quand c'est prêt</button>
+    <p class="notify-status" id="notifyStatus"></p>
   </div>
 </div>
 
@@ -739,6 +761,11 @@
     const modalName = document.getElementById('modalName');
     const modalDesc = document.getElementById('modalDesc');
     const modalStatus = document.getElementById('modalStatus');
+    const btnNotifyReady = document.getElementById('btnNotifyReady');
+    const notifyStatus = document.getElementById('notifyStatus');
+    let lastOrderId = null;
+    let lastOrderCocktail = null;
+    let lastOrderGuest = null;
     const btnConfirm = document.getElementById('btnConfirm');
     const btnCancel = document.getElementById('btnCancel');
     const modalClose = document.getElementById('modalClose');
@@ -791,6 +818,8 @@
       modalName.textContent = name;
       modalDesc.textContent = desc;
       modalStatus.textContent = '';
+      btnNotifyReady.style.display = 'none';
+      notifyStatus.textContent = '';
       guestNameInput.value = localStorage.getItem('tikibarGuestName') || '';
       tableLocationSelect.value = localStorage.getItem('tikibarTableLocation') || '';
       iceToggle.style.display = currentNeedsIce ? 'block' : 'none';
@@ -897,7 +926,9 @@
       localStorage.setItem('tikibarTableLocation', table);
 
       const orderId = generateOrderId();
-      subscribeForPreparationNotif(orderId, currentCocktail, guest);
+      lastOrderId = orderId;
+      lastOrderCocktail = currentCocktail;
+      lastOrderGuest = guest;
 
       fetch(WEBHOOK_URL, {
         method: 'POST',
@@ -914,7 +945,36 @@
       }).catch(function () { /* silently ignore network errors */ });
 
       modalStatus.textContent = guest ? 'Merci ' + guest + ', commande envoyée ✓' : 'Commande envoyée ✓';
-      setTimeout(closeOrderModal, 1300);
+
+      const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window;
+      if (pushSupported) {
+        btnNotifyReady.style.display = 'block';
+        btnNotifyReady.disabled = false;
+        btnNotifyReady.textContent = '🔔 Être notifié quand c\'est prêt';
+      } else {
+        setTimeout(closeOrderModal, 1300);
+      }
+    });
+
+    btnNotifyReady.addEventListener('click', async function () {
+      const isIOS = /iP(hone|od|ad)/.test(navigator.platform) || (navigator.userAgent.indexOf('Mac') !== -1 && 'ontouchend' in document);
+      const isStandalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+
+      if (isIOS && !isStandalone) {
+        notifyStatus.textContent = 'Sur iPhone : ajoute d\'abord ce site à ton écran d\'accueil (bouton Partager de Safari → "Sur l\'écran d\'accueil"), puis reviens commander pour être notifié.';
+        return;
+      }
+
+      btnNotifyReady.disabled = true;
+      btnNotifyReady.textContent = 'Activation...';
+      await subscribeForPreparationNotif(lastOrderId, lastOrderCocktail, lastOrderGuest);
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        btnNotifyReady.textContent = '🔔 Tu seras notifié !';
+        notifyStatus.textContent = '';
+      } else {
+        btnNotifyReady.style.display = 'none';
+        notifyStatus.textContent = 'Notifications refusées ou indisponibles sur cet appareil.';
+      }
     });
   })();
 </script>
