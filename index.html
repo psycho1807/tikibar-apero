@@ -1074,5 +1074,21 @@
 })();
 </script>
 <style>#btnNotifyReady, #notifyStatus { display: none !important; }</style>
+  <script>
+(function () {
+  var WEBHOOK_MATCH = 'tikibar-cocktail-order';
+  var originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (url.indexOf(WEBHOOK_MATCH) !== -1) {
+      setTimeout(function () {
+        var backdrop = document.getElementById('orderModalBackdrop');
+        if (backdrop) backdrop.classList.remove('open');
+      }, 1200);
+    }
+    return originalFetch.apply(this, arguments);
+  };
+})();
+</script>
 </body>
 </html>
