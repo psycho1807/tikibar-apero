@@ -1,6 +1,8 @@
 import type { Context, Config } from "@netlify/functions";
 import { getStore } from "@netlify/blobs";
 
+// redeploy trigger: pick up TIKIBAR_ADMIN_KEY env var
+
 // Liste de tous les ingrédients gérables depuis /admin.html
 const ALL_INGREDIENTS = [
   "gin", "rhum_blanc", "rhum_ambre", "vodka", "tequila", "whisky",
