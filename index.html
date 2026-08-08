@@ -1092,3 +1092,69 @@
 </script>
 </body>
 </html>
+<script>
+(function () {
+  var STOCK_URL = '/api/stock';
+  var RECIPE = {
+    'Mojito': { all: ['rhum_blanc','sucre_canne','citron_vert','menthe','eau_gazeuse'] },
+    'Gin tonic': { all: ['gin','tonic'] },
+    'Piña colada': { all: ['rhum_blanc','jus_ananas','creme_coco','glace_pilee'] },
+    'Margarita': { all: ['tequila','triple_sec','citron_vert','sel'] },
+    'Moscow mule': { all: ['vodka','ginger_beer','citron_vert'] },
+    'Daiquiri': { all: ['rhum_blanc','citron_vert','sirop_sucre'] },
+    'Negroni': { all: ['gin','campari','vermouth_rouge'] },
+    'Cosmopolitan': { all: ['vodka','triple_sec','jus_cranberry','citron_vert'] },
+    'Whisky sour': { all: ['whisky','citron_vert','sirop_sucre','angostura'] },
+    'St-Germain Spritz': { all: ['st_germain','vin_petillant','eau_gazeuse','citron_vert'] },
+    'Whisky': { all: ['whisky'] },
+    'Rhum': { any: ['rhum_blanc','rhum_ambre'] },
+    'Vodka': { all: ['vodka'] },
+    'Vin': { any: ['vin_rouge','vin_blanc','vin_rose'] },
+    'Bière': { any: ['biere_corona','biere_desperados','biere_leffe'] },
+    'Coca': { all: ['coca'] },
+    'Red Bull': { all: ['redbull'] },
+    'Limonade': { all: ['limonade'] },
+    'Jus de fruits': { all: ['jus_fruits'] },
+    'Perrier': { all: ['perrier'] }
+  };
+
+  function isAvailable(name, stock) {
+    var r = RECIPE[name];
+    if (!r) return true;
+    if (r.all) return r.all.every(function (k) { return stock[k] !== false; });
+    if (r.any) return r.any.some(function (k) { return stock[k] !== false; });
+    return true;
+  }
+
+  function toast(msg) {
+    var t = document.createElement('div');
+    t.textContent = msg;
+    t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2a1f14;color:#f5e6c8;padding:10px 18px;border-radius:999px;font-family:Inter,sans-serif;font-size:13px;z-index:99999;box-shadow:0 6px 20px rgba(0,0,0,.5);';
+    document.body.appendChild(t);
+    setTimeout(function () { t.remove(); }, 2200);
+  }
+
+  var style = document.createElement('style');
+  style.textContent =
+    '.item-unavailable { opacity: 0.35; filter: grayscale(65%); position: relative; }' +
+    '.item-unavailable::after { content: "Rupture"; position: absolute; top: 2px; right: 2px; background: #c0304a; color: #fff; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 999px; letter-spacing: .3px; }';
+  document.head.appendChild(style);
+
+  document.addEventListener('click', function (e) {
+    var item = e.target.closest && e.target.closest('.tiki-wrap .item.item-unavailable');
+    if (!item) return;
+    e.preventDefault();
+    e.stopPropagation();
+    toast('Ingrédient manquant, indisponible pour le moment 🙁');
+  }, true);
+
+  fetch(STOCK_URL).then(function (r) { return r.json(); }).then(function (stock) {
+    document.querySelectorAll('.tiki-wrap .item').forEach(function (item) {
+      var nameEl = item.querySelector('.name');
+      if (!nameEl) return;
+      var name = nameEl.textContent.trim();
+      item.classList.toggle('item-unavailable', !isAvailable(name, stock));
+    });
+  }).catch(function () { /* API pas encore déployée: rien n'est grisé */ });
+})();
+</script>
