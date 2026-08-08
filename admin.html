@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tikibar — Admin stock</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@700;800&family=Inter:wght@400;500;600&display=swap');
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #000; color: #e8f1f2; font-family: 'Inter', sans-serif; }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1 {
+    font-family: 'Baloo 2', sans-serif;
+    font-weight: 800;
+    font-size: 26px;
+    color: #4be7f0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 0.3rem;
+  }
+  .sub { color: #9fb3b7; font-size: 12.5px; margin: 0 0 1.6rem; }
+  .group-label {
+    font-family: 'Baloo 2', sans-serif;
+    font-size: 14px;
+    color: #34d6e0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 1.6rem 0 0.7rem;
+    border-bottom: 1px solid #1d2a30;
+    padding-bottom: 0.35rem;
+  }
+  .group-label:first-of-type { margin-top: 0; }
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.55rem 0.1rem;
+    border-bottom: 1px solid #14181a;
+  }
+  .row .label { font-size: 14px; color: #e8f1f2; }
+  .switch { position: relative; width: 46px; height: 26px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background: #3a3f42; border-radius: 999px; transition: 0.2s;
+  }
+  .slider::before {
+    content: ""; position: absolute; height: 20px; width: 20px; left: 3px; top: 3px;
+    background: #fff; border-radius: 50%; transition: 0.2s;
+  }
+  .switch input:checked + .slider { background: linear-gradient(135deg, #ff8fb1, #ffb84d); }
+  .switch input:checked + .slider::before { transform: translateX(20px); }
+  .switch input:disabled + .slider { opacity: 0.4; cursor: wait; }
+  #loginScreen {
+    max-width: 320px; margin: 4rem auto 0; text-align: center;
+  }
+  #loginScreen input {
+    width: 100%; border: 1.5px solid #b8a577; border-radius: 10px; padding: 0.7rem 0.9rem;
+    font-size: 16px; color: #2a1f14; background: #fffaf0; margin: 1rem 0; box-sizing: border-box;
+  }
+  #loginScreen button, .toast-retry {
+    width: 100%; border: none; border-radius: 10px; padding: 0.75rem; font-weight: 600;
+    font-size: 14px; cursor: pointer; background: linear-gradient(135deg, #ff8fb1, #ffb84d); color: #2a1f14;
+  }
+  #loginError { color: #ff6f91; font-size: 12.5px; min-height: 18px; margin: 0.3rem 0 0; }
+  #adminPanel { display: none; }
+  .save-hint { font-size: 11.5px; color: #6b9a70; min-height: 16px; margin: -0.4rem 0 0.6rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loginScreen">
+    <h1>🍹 Tikibar</h1>
+    <p class="sub">Accès admin — gestion du stock</p>
+    <input type="password" id="pwdInput" placeholder="Mot de passe admin" autocomplete="off">
+    <button id="loginBtn" type="button">Se connecter</button>
+    <p id="loginError"></p>
+  </div>
+
+  <div id="adminPanel">
+    <h1>🍹 Stock Tikibar</h1>
+    <p class="sub">Décoche ce qu'il te manque — les cocktails concernés seront grisés côté invités, en temps réel.</p>
+    <p class="save-hint" id="saveHint">&nbsp;</p>
+    <div id="ingredientList"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var STOCK_URL = '/api/stock';
+  var STORAGE_KEY = 'tikibarAdminKey';
+
+  var GROUPS = [
+    {
+      label: 'Alcools forts',
+      items: [
+        ['gin', 'Gin'],
+        ['rhum_blanc', 'Rhum blanc'],
+        ['rhum_ambre', 'Rhum ambré'],
+        ['vodka', 'Vodka'],
+        ['tequila', 'Tequila'],
+        ['whisky', 'Whisky'],
+        ['triple_sec', 'Triple sec'],
+        ['campari', 'Campari'],
+        ['vermouth_rouge', 'Vermouth rouge'],
+        ['st_germain', 'St-Germain']
+      ]
+    },
+    {
+      label: 'Vins & bières',
+      items: [
+        ['vin_rouge', 'Vin rouge'],
+        ['vin_blanc', 'Vin blanc'],
+        ['vin_rose', 'Vin rosé'],
+        ['biere_corona', 'Bière Corona'],
+        ['biere_desperados', 'Bière Desperados'],
+        ['biere_leffe', 'Bière Leffe']
+      ]
+    },
+    {
+      label: 'Mixers & garnitures',
+      items: [
+        ['tonic', 'Tonic'],
+        ['ginger_beer', 'Ginger beer'],
+        ['vin_petillant', 'Vin pétillant'],
+        ['eau_gazeuse', 'Eau gazeuse'],
+        ['jus_ananas', "Jus d'ananas"],
+        ['jus_cranberry', 'Jus de cranberry'],
+        ['sirop_sucre', 'Sirop de sucre'],
+        ['angostura', 'Angostura'],
+        ['creme_coco', 'Crème de coco'],
+        ['glace_pilee', 'Glace pilée'],
+        ['sucre_canne', 'Sucre de canne'],
+        ['citron_vert', 'Citron vert'],
+        ['menthe', 'Menthe'],
+        ['sel', 'Sel']
+      ]
+    },
+    {
+      label: 'Softs',
+      items: [
+        ['coca', 'Coca'],
+        ['redbull', 'Red Bull'],
+        ['limonade', 'Limonade'],
+        ['jus_fruits', 'Jus de fruits'],
+        ['perrier', 'Perrier']
+      ]
+    }
+  ];
+
+  var loginScreen = document.getElementById('loginScreen');
+  var adminPanel = document.getElementById('adminPanel');
+  var pwdInput = document.getElementById('pwdInput');
+  var loginBtn = document.getElementById('loginBtn');
+  var loginError = document.getElementById('loginError');
+  var listEl = document.getElementById('ingredientList');
+  var saveHint = document.getElementById('saveHint');
+
+  function adminKey() {
+    return localStorage.getItem(STORAGE_KEY) || '';
+  }
+
+  function renderList(stock) {
+    listEl.innerHTML = '';
+    GROUPS.forEach(function (group) {
+      var h = document.createElement('div');
+      h.className = 'group-label';
+      h.textContent = group.label;
+      listEl.appendChild(h);
+      group.items.forEach(function (pair) {
+        var key = pair[0], label = pair[1];
+        var row = document.createElement('div');
+        row.className = 'row';
+        row.innerHTML =
+          '<span class="label">' + label + '</span>' +
+          '<label class="switch"><input type="checkbox" data-key="' + key + '"' +
+          (stock[key] !== false ? ' checked' : '') + '><span class="slider"></span></label>';
+        listEl.appendChild(row);
+      });
+    });
+    listEl.querySelectorAll('input[type=checkbox]').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        toggleIngredient(cb.dataset.key, cb.checked, cb);
+      });
+    });
+  }
+
+  function toggleIngredient(key, value, cb) {
+    cb.disabled = true;
+    saveHint.textContent = 'Enregistrement...';
+    var body = {};
+    body[key] = value;
+    fetch(STOCK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey() },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      if (r.status === 401) {
+        localStorage.removeItem(STORAGE_KEY);
+        showLogin('Session expirée, reconnecte-toi.');
+        throw new Error('unauthorized');
+      }
+      return r.json();
+    }).then(function () {
+      saveHint.textContent = '✓ Enregistré';
+      setTimeout(function () { saveHint.textContent = ' '; }, 1200);
+    }).catch(function () {
+      saveHint.textContent = 'Erreur, réessaie.';
+    }).finally(function () {
+      cb.disabled = false;
+    });
+  }
+
+  function loadStock() {
+    fetch(STOCK_URL).then(function (r) { return r.json(); }).then(renderList).catch(function () {
+      listEl.textContent = "Impossible de charger le stock (l'API /api/stock n'est peut-être pas encore déployée).";
+    });
+  }
+
+  function showAdmin() {
+    loginScreen.style.display = 'none';
+    adminPanel.style.display = 'block';
+    loadStock();
+  }
+
+  function showLogin(err) {
+    adminPanel.style.display = 'none';
+    loginScreen.style.display = 'block';
+    loginError.textContent = err || '';
+  }
+
+  function tryLogin(key) {
+    loginError.textContent = '';
+    loginBtn.disabled = true;
+    loginBtn.textContent = 'Connexion...';
+    fetch(STOCK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': key },
+      body: '{}'
+    }).then(function (r) {
+      if (r.status === 401) {
+        loginError.textContent = 'Mot de passe incorrect.';
+        return;
+      }
+      if (!r.ok) {
+        loginError.textContent = "Erreur serveur, réessaie.";
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY, key);
+      showAdmin();
+    }).catch(function () {
+      loginError.textContent = "Impossible de contacter l'API (/api/stock pas encore déployée ?).";
+    }).finally(function () {
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Se connecter';
+    });
+  }
+
+  loginBtn.addEventListener('click', function () {
+    var val = pwdInput.value.trim();
+    if (!val) return;
+    tryLogin(val);
+  });
+  pwdInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') loginBtn.click();
+  });
+
+  var stored = adminKey();
+  if (stored) {
+    showAdmin();
+  } else {
+    showLogin();
+  }
+})();
+</script>
+</body>
+</html>
