@@ -1018,6 +1018,60 @@
     });
   })();
 </script>
+<script>
+(function () {
+  var COOLDOWN_MINUTES = 20; // ajuste si besoin
+  var COOLDOWN_MS = COOLDOWN_MINUTES * 60 * 1000;
+  var STORAGE_KEY = 'tikibarLastOrderSentAt';
+  var WEBHOOK_MATCH = 'tikibar-cocktail-order';
 
+  function remainingCooldown() {
+    var last = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10);
+    return COOLDOWN_MS - (Date.now() - last);
+  }
+
+  function showWarning(remainingMs) {
+    var mins = Math.max(1, Math.ceil(remainingMs / 60000));
+    var existing = document.getElementById('tikibarSpamWarning');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.id = 'tikibarSpamWarning';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+    overlay.innerHTML =
+      '<div style="background:#2a1f14;color:#f5e6c8;max-width:320px;padding:24px 20px;border-radius:16px;text-align:center;font-family:Inter,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.5);">' +
+      '<div style="font-size:36px;margin-bottom:8px;">⚠️🍹</div>' +
+      '<h3 style="margin:0 0 10px;font-size:18px;">Doucement, champion</h3>' +
+      '<p style="margin:0 0 14px;line-height:1.5;font-size:14px;">Ta commande est déjà partie au bar. L\'abus d\'alcool est dangereux pour la santé, à consommer avec modération.<br><br>Nouveau cocktail possible dans <strong>' + mins + ' min</strong>.</p>' +
+      '<button id="tikibarSpamClose" style="background:#e8a33d;color:#2a1f14;border:none;padding:9px 22px;border-radius:10px;font-weight:600;cursor:pointer;">J\'ai compris</button>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    overlay.querySelector('#tikibarSpamClose').addEventListener('click', function () { overlay.remove(); });
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+  }
+
+  // Capture = s'exécute avant le handler d'origine sur #btnConfirm
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('#btnConfirm');
+    if (!btn) return;
+    var remaining = remainingCooldown();
+    if (remaining > 0) {
+      e.preventDefault();
+      e.stopPropagation();
+      showWarning(remaining);
+    }
+  }, true);
+
+  // Ne démarre le cooldown que si la commande part vraiment (après
+  // validation du lieu par le code existant)
+  var originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (url.indexOf(WEBHOOK_MATCH) !== -1) {
+      localStorage.setItem(STORAGE_KEY, Date.now().toString());
+    }
+    return originalFetch.apply(this, arguments);
+  };
+})();
+</script>
 </body>
 </html>
