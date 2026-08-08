@@ -12,6 +12,7 @@ const ALL_INGREDIENTS = [
   "tonic", "ginger_beer", "vin_petillant", "eau_gazeuse",
   "jus_ananas", "jus_cranberry", "sirop_sucre", "angostura",
   "creme_coco", "glace_pilee", "sucre_canne", "citron_vert", "menthe", "sel",
+  "jus_orange", "grenadine", "soda_pamplemousse", "creme_cassis",
   "coca", "redbull", "limonade", "jus_fruits", "perrier"
 ];
 
